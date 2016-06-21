@@ -1,0 +1,115 @@
+---
+title: "tuesday-am-lidar"
+author: "Catherine Hulshof DLP"
+date: "June 21, 2016"
+output: html_document
+---
+## Load required libraries
+
+```{r load-libraries}
+
+library(raster)
+library(rhdf5)
+library(rgdal)
+
+```
+
+
+## Import Canopy Height Model
+
+```{r import-canopy-height }
+
+chm <- raster("../NEONdata/D17-California/TEAK/2013/lidar/TEAK_lidarCHM.tif")
+plot(chm,
+     main = "this plots the image")
+image(chm,
+      main = "these are just piels and will stretch the space")
+```
+
+## Deal with 0 values
+```{r assign-values-na }
+hist(chm)
+chm[chm==0] <- NA
+hist(chm)
+```
+
+## Import aspect data
+```{r import-aspect }
+aspect <- raster("../NEONdata/D17-California/TEAK/2013/lidar/TEAK_lidarAspect.tif")
+plot(aspect,
+     main="Aspect data for Teakettle Field Site")
+```
+
+## Create classification matrix
+```{r class-matrix }
+
+class.m <- c(0, 45, 1,
+             45, 135, NA,
+             135, 225, 2,
+             225, 315, NA,
+             315, 360, 1)
+
+rclm.m <- matrix(class.m,
+           ncol = 3,
+           byrow = TRUE)
+
+rclm.m
+
+```
+
+## Reclassify raster
+```{r reclassify-raster }
+asp.ns <- reclassify(aspect,rclm.m)
+
+plot(asp.ns, main = "North and South Facing Slopes")
+```
+
+
+# plot outside of the plot region
+
+# make room for a legend
+par(xpd = FALSE, mar=c(5.1, 4.1, 4.1, 4.5))
+# plot
+plot(asp.ns,
+     col=c("white","blue","green"), # hard code colors, unclassified (0)=white,
+		 #N (1) =blue, S(2)=green
+     main="North and South Facing Slopes \nLower Teakettle",
+     legend=F)
+# allow legend to plot outside of bounds
+par(xpd=TRUE)
+# create the legend
+legend((par()$usr[2] + 20), 4103300,  # set x,y legend location
+       legend = c("North", "South"),  # make sure the order matches the colors, next
+       fill = c("blue", "green"),
+       bty="n") # turn off border
+       
+
+## Export Geotiff
+
+```{r export-geotiff, eval = FALSE}
+
+writeRaster(asp.ns,
+            filename="../outputs/TEAK/Teak_nsAspect.tif",
+            format="GTiff",
+            options="COMPRESS=LZW",
+            overwrite = TRUE,
+            NAflag = -9999)
+
+```
+
+## Mask Raster will allow you to remove parts of a raster based on pixel values using a mask from an analysis. A mask raster layer is a layer that contains pixels that won’t be used in the analysis. In R, these pixels as assigned an NA value.
+
+```{r raster-mask }
+
+asp.ns
+
+ndvi <- raster("../NEONdata/D17-California/TEAK/2013/spectrometer/veg_index/TEAK_NDVI.tif")
+plot(ndvi,
+     main = "NDVI for Teakettle field site")
+
+#mask data
+nFacing.ndvi <- mask(ndvi, asp.ns)
+plot(nFacing.ndvi)
+
+```
+
